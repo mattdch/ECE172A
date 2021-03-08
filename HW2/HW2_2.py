@@ -17,7 +17,7 @@ import heapq
 # initialize parameters
 height = 50; # map height
 width = 50 # map width
-num_bots = 1 # number of bots
+num_bots = 15 # number of bots
 max_itr = 2500 # maximum number of iterations
 
 wall = 1 # value for a wall in the map matrix
@@ -61,6 +61,15 @@ def get_unexplored_areas(explore_map, unmapped_value):
     unexplored areas in this case. If there are no unexplored areas, then
     unexplored_areas should return empty [].
     '''
+    unexplored = np.where(explore_map == unmapped_value)
+    unexplored = np.dstack((unexplored[0],unexplored[1]))
+    unexplored = unexplored[0]
+    if unexplored.shape[0] != 0:
+        return unexplored
+    elif unexplored.shape[0] == 0:
+        return np.empty(0)
+
+
     return 0
 
 def get_new_destination(current_position, unexplored_areas):
@@ -71,8 +80,11 @@ def get_new_destination(current_position, unexplored_areas):
     we define "closest" using the euclidean distance measure,
     e.g. sqrt((x1-x2)^2 + (y1-y2)^2).
     '''
+    curPos = np.array(current_position)
 
-    return 0
+    #distances = np.zeros(unexplored_areas.shape[0], dtype=int)
+    distances = np.linalg.norm((np.repeat(curPos[None,:],unexplored_areas.shape[0],0) - unexplored_areas), axis=1)
+    return unexplored_areas[np.argmin(distances)]
 
 
 def update_explore_map(dest, route, explore_map, planned, unmapped):
@@ -81,7 +93,10 @@ def update_explore_map(dest, route, explore_map, planned, unmapped):
     are marked as PLANNED only if it was previous UNMAPPED in the explore_map
     variable.
     '''
-
+    for coord in route:
+        if explore_map[coord[0],coord[1]] == unmapped:
+            explore_map[coord[0],coord[1]] = planned
+        
     return explore_map
 
 def update_position(curPos, route, dest, explore_map, mapped):
@@ -95,6 +110,15 @@ def update_position(curPos, route, dest, explore_map, mapped):
        updated to e.g. if route was inputted as an Nx2 matrix, it should
        output as a (N-1)x2 matrix.
     '''
+
+    curPos = route[1]
+    
+    explore_map[curPos[0],curPos[1]] = mapped
+    
+    if np.array_equal(curPos,dest):
+        dest = np.empty(0)
+    
+    route = np.delete(route,0, axis=0)
 
     return curPos, route, dest, explore_map
 
@@ -204,22 +228,24 @@ for itr in range(max_itr):
         update_bot_info(curPos, dest, route, explore_map, botNum)
 
     # update display
-    plt.imshow(explore_map, cmap='gray')
-    for i in range(num_bots):
-        fig = plt.gcf()
-        ax = fig.gca()
-        ax.add_patch(patches.Rectangle((bots[i]['current_position'][1]-.5, bots[i]['current_position'][0]-.5), 1, 1, edgecolor = 'blue', facecolor = 'red', fill=True))
-        if len(bots[i]['destination']) != 0:
-            plt.plot([b[1] for b in bots[i]['route']], [b[0] for b in bots[i]['route']], color='red')
-            plt.plot(bots[i]['destination'][1], bots[i]['destination'][0], color='yellow')
+    num_frames_skipped = 20
+    if itr % num_frames_skipped == 0:
+        plt.imshow(explore_map, cmap='gray')
+        for i in range(num_bots):
+            fig = plt.gcf()
+            ax = fig.gca()
+            ax.add_patch(patches.Rectangle((bots[i]['current_position'][1]-.5, bots[i]['current_position'][0]-.5), 1, 1, edgecolor = 'blue', facecolor = 'red', fill=True))
+            if len(bots[i]['destination']) != 0:
+                plt.plot([b[1] for b in bots[i]['route']], [b[0] for b in bots[i]['route']], color='red')
+                plt.plot(bots[i]['destination'][1], bots[i]['destination'][0], color='yellow')
 
-    plt.show(block=False)
-    plt.pause(.25)
-    ax.patches = []
-    mapped_count = sum(sum(np.array(explore_map) == mapped))
-    wall_count = sum(sum(np.array(explore_map) == wall))
-    explore_size = explore_map.size
-    if (mapped_count + wall_count) == explore_size:
-        break
+        plt.show(block=False)
+        plt.pause(.25)
+        ax.patches = []
+        mapped_count = sum(sum(np.array(explore_map) == mapped))
+        wall_count = sum(sum(np.array(explore_map) == wall))
+        explore_size = explore_map.size
+        if (mapped_count + wall_count) == explore_size:
+            break
 
 print("Number of iterations: "+str(itr))
